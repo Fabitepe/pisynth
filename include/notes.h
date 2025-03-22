@@ -3,9 +3,6 @@
 
 
 enum Note{
-    A,
-    Ais,
-    B,
     C,
     Cis,
     D,
@@ -14,7 +11,10 @@ enum Note{
     F,
     Fis,
     G,
-    Gis
+    Gis,
+    A,
+    Ais,
+    B
 };
 
 const float TABLE_C[]   = {16.35,   32.70,  65.41,   130.81,    261.63,  523.25,  1046.50,  2093.00,   4186.01};

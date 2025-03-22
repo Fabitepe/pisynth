@@ -7,6 +7,6 @@ file(GLOB SOURCES "src/*.c*")
 
 add_executable(pisynth ${SOURCES})
 
-include_directories(include)
+include_directories(include /usr/local/include/rtmidi/)
 
-target_link_libraries(pisynth -ldl -lpthread -lm -latomic)
+target_link_libraries(pisynth -ldl -lpthread -lm -latomic -lrtmidi -lasound)

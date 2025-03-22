@@ -4,7 +4,14 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#define MIDI_INPUT
+
+
+#ifndef MIDI_INPUT
 #include <linux/input.h>
+#endif
+
+
 
 #include "banner.h"
 #include "noteoscillator.h"
@@ -27,6 +34,35 @@ NoteOscillator osc2(Oscillator::Waveform::Saw, SAMPLE_RATE, 0.5f, 400.0f, 0.2f);
 NoteOscillator osc3(Oscillator::Waveform::Saw, SAMPLE_RATE, 5.5f, 100.0f, 0.0f);
 
 Instrument inst;
+
+
+#ifdef MIDI_INPUT
+#include "RtMidi.h"
+
+void midiCallback(double deltatime, std::vector<unsigned char>* message, void *userData) {
+    if(!message->empty())
+    {
+        if(message->size() != 3)
+        {
+            return;
+        }
+
+        bool pressed = message->at(2) == 80;
+        if(!pressed)
+        {
+            inst.endNote();
+            return;
+        }
+
+        int key = message->at(1);
+        Note note = static_cast<Note>(key % 12);
+        int octave = key / 12;
+
+        inst.triggerNote(note, octave);
+    }
+}
+
+#endif
 
 float master_vol = 1.0f;
 
@@ -68,7 +104,7 @@ int main() {
 
     ma_context_uninit(&context);
 
-    int chosenPlaybackDeviceIndex = 12;
+    int chosenPlaybackDeviceIndex = 14;
 
     ma_device_config config   = ma_device_config_init(ma_device_type_playback);
     config.playback.pDeviceID = &pPlaybackInfos[chosenPlaybackDeviceIndex].id;
@@ -88,6 +124,7 @@ int main() {
     std::cout << " on " << device.playback.channels << " channels" << std::endl;
 
     inst.addOscillator(&osc1, 0);
+    inst.addOscillator(&osc2, 0, 0.2);
     inst.addOscillator(&osc3, -1, 0.2);
 
 
@@ -98,6 +135,9 @@ int main() {
     }
 
     std::cout << BANNER << std::endl;
+
+
+#ifndef MIDI_INPUT
 
     const char *inputDevice = "/dev/input/event7"; // Change event2 to your keyboard event file
     int fd = open(inputDevice, O_RDONLY);
@@ -149,6 +189,43 @@ int main() {
         }
         inst.triggerNote(note, 3);
     }
+#endif
+
+#ifdef MIDI_INPUT
+
+    try {
+        RtMidiIn midiIn;
+
+        unsigned int numPorts = midiIn.getPortCount();
+        if (numPorts == 0) {
+            std::cout << "No MIDI input devices found!" << std::endl;
+            return 1;
+        }
+
+        std::cout << "Available MIDI Ports:\n";
+        for (unsigned int i = 0; i < numPorts; i++) {
+            std::cout << i << ": " << midiIn.getPortName(i) << std::endl;
+        }
+
+        // Open first available MIDI port
+        midiIn.openPort(1);
+        midiIn.setCallback(&midiCallback);
+        midiIn.ignoreTypes(false, false, false);
+
+        std::cout << "Listening for MIDI input. Press Ctrl+C to quit." << std::endl;
+
+        // Keep the program running
+        while (true) {
+            usleep(100000); // Sleep for 100ms
+        }
+    }
+    catch (RtMidiError &error) {
+        error.printMessage();
+        return 1;
+    }
+
+
+#endif
 
     ma_device_uninit(&device);
     return 0;
