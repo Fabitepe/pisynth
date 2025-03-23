@@ -19,6 +19,8 @@ public:
         float sustain = 0.7f,
         float release = 600.0f
     );
+    NoteOscillator(const NoteOscillator& other);
+
     void setAttack(float attack);
     void setDecay(float decay);
     void setSustain(float sustain);
@@ -28,6 +30,7 @@ public:
     void triggerNote(Note note, int octave, float volume);
     void endNote();
     float nextSample();
+    bool isDone();
 
 private:
 
@@ -40,7 +43,8 @@ private:
         Attack,
         Decay,
         Sustain,
-        Release
+        Release,
+        Done
     };
 
     NoteOscillator::EnvelopeStage stage;
@@ -52,6 +56,10 @@ private:
     float release;    // ms
 
     int octaveOffset;
+
+    float currentStageVolume;
+    float currentReleaseVolume;
+    
 };
 
 #endif // NOTEOSCILLATOR_H

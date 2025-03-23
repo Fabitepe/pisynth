@@ -3,6 +3,8 @@ project(pisynth)
 
 set(CMAKE_CXX_STANDARD 17)
 
+# set(CMAKE_BUILD_TYPE Debug)
+
 file(GLOB SOURCES "src/*.c*")
 
 add_executable(pisynth ${SOURCES})

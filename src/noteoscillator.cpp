@@ -10,7 +10,31 @@ NoteOscillator::NoteOscillator(
     float decay,
     float sustain,
     float release
-) : Oscillator(waveform, sampleRate), stage(EnvelopeStage::Idle), noteSampleCounter(0), attack(attack), decay(decay), sustain(sustain), release(release), octaveOffset(0)
+):      Oscillator(waveform, sampleRate),
+        stage(EnvelopeStage::Idle),
+        noteSampleCounter(0),
+        attack(attack),
+        decay(decay),
+        sustain(sustain),
+        release(release),
+        octaveOffset(0),
+        currentStageVolume(0.0f),
+        currentReleaseVolume(0.0f)
+{
+}
+
+
+NoteOscillator::NoteOscillator(const NoteOscillator& other):
+        Oscillator(other.waveform, other.sampleRate),
+        stage(EnvelopeStage::Idle),
+        noteSampleCounter(0),
+        attack(other.attack),
+        decay(other.decay),
+        sustain(other.sustain),
+        release(other.release),
+        octaveOffset(other.octaveOffset),
+        currentStageVolume(0.0f),
+        currentReleaseVolume(0.0f)
 {
 }
 
@@ -47,7 +71,12 @@ float NoteOscillator::attackStage()
         this->stage = EnvelopeStage::Decay;
         return 1.0f;
     }
-    float vol = ((float) this->noteSampleCounter) / ((float) attackSamples);
+    float vol = ((float) this->noteSampleCounter) / ((float) attackSamples) + this->currentReleaseVolume;
+    if(vol > 1.0f)
+    {
+        vol = 1.0f;
+    }
+    this->currentStageVolume = vol;
     return vol;
 }
 
@@ -67,8 +96,7 @@ float NoteOscillator::decayStage()
             return this->sustain;
         }else
         {
-            this->stage = EnvelopeStage::Idle;
-            this->phase = 0.0f;
+            this->stage = EnvelopeStage::Done;
             return 0.0;
         }
     }
@@ -76,6 +104,7 @@ float NoteOscillator::decayStage()
     float progress = ((float) (this->noteSampleCounter - attackSamples)) / ((float) decaySamples);
     float decayCurveValue = downCurveValue(1.0f - progress);
     float vol = 1.0f - ((1.0f - this->sustain) * decayCurveValue);
+    this->currentStageVolume = vol;
     return vol;
 }
 
@@ -86,21 +115,21 @@ float NoteOscillator::releaseStage()
     int releaseSamples = samplesPerMS * this->release;
     float progress = (float) this->noteSampleCounter / (float) releaseSamples;
     float releaseCurveValue = downCurveValue(progress);
-    float stageVolume = this->sustain * releaseCurveValue;
+    float stageVolume = this->currentStageVolume * releaseCurveValue;
 
     if(stageVolume <= 0.0f)
     {
-        this->stage = EnvelopeStage::Idle;
-        this->phase = 0.0f;
+        this->stage = EnvelopeStage::Done;
         stageVolume = 0.0f;
     }
+    this->currentReleaseVolume = stageVolume;
     return stageVolume;
 }
 
 
 float NoteOscillator::nextSample()
 {
-    if(stage == EnvelopeStage::Idle)
+    if(EnvelopeStage::Idle == this->stage || EnvelopeStage::Done == this->stage)
     {
         return 0.0;
     }
@@ -113,13 +142,14 @@ float NoteOscillator::nextSample()
     case EnvelopeStage::Attack:
         stageVolume = this->attackStage();
         break;
-        
+
     case EnvelopeStage::Decay:
         stageVolume = this->decayStage();
         break;
 
     case EnvelopeStage::Sustain:
         stageVolume = this->sustain;
+        this->currentStageVolume = stageVolume;
         break;
 
     case EnvelopeStage::Release:
@@ -136,7 +166,6 @@ float NoteOscillator::nextSample()
 
 void NoteOscillator::triggerNote(float frequency, float volume)
 {
-    this->phase = 0.0f;
     this->setFrequency(frequency);
     this->noteSampleCounter = 0;
     this->stage = EnvelopeStage::Attack;
@@ -153,4 +182,11 @@ void NoteOscillator::endNote()
 {
     this->stage = EnvelopeStage::Release;
     this->noteSampleCounter = 0;
+}
+
+
+bool NoteOscillator::isDone()
+{
+    bool done = EnvelopeStage::Done == this->stage;
+    return done;
 }
